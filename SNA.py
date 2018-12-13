@@ -24,14 +24,6 @@ def getNetworkGraph(df, figsize=(12,12), dpi=160, nodeColor="#05507d", arrowDefa
     plt.figure(figsize=figsize, dpi=dpi, facecolor="w")
     plt.axis("off")
     
-    #플롯 한글폰트 설정
-    plt.rcParams["font.family"] = 'NanumGothic'
-    plt.rcParams['axes.unicode_minus'] = False
-    plt.rcParams['font.size'] = 12.
-    plt.rcParams['xtick.labelsize'] = 12.
-    plt.rcParams['ytick.labelsize'] = 12.
-    plt.rcParams['axes.labelsize'] = 12.
-    
     #그래프 그리기
     DG = nx.DiGraph()
 
