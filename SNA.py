@@ -13,7 +13,11 @@ import pandas as pd
 #데이터 로드
 df = pd.read_csv("data/network_test_data.csv")
 
-def getNetworkGraph(df, targetSelectionName="", figsize=(12,12), dpi=160, nodeColor="#05507d", arrowDefaultColor="#dddddd", arrowEmpathyzedColor="#ff708a"):
+def getDataFromGongam():
+    from urllib.request import urlopen
+    from bs4 import BeautifulSoup
+
+def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dpi=160, nodeColor="#05507d", arrowDefaultColor="#dddddd", arrowEmpathyzedColor="#ff708a"):
     import numpy as np
     import networkx as nx
     import matplotlib.pyplot as plt
@@ -24,6 +28,8 @@ def getNetworkGraph(df, targetSelectionName="", figsize=(12,12), dpi=160, nodeCo
     #플롯 설정
     plt.figure(figsize=figsize, dpi=dpi, facecolor="w")
     plt.axis("off")
+    if (pltTitle):
+        plt.title(pltTitle);
     
     #그래프 그리기
     DG = nx.DiGraph()
@@ -97,4 +103,4 @@ def getNetworkGraph(df, targetSelectionName="", figsize=(12,12), dpi=160, nodeCo
     #nx.draw_networkx_edge_labels(DG, pos, edge_labels=edge_labels, alpha=0.45, font_size=5)
     
 #그래프 생성
-getNetworkGraph(df, targetSelectionName="", nodeColor="#8dc63f")
+getNetworkGraph(df, pltTitle="", targetSelectionName="", nodeColor="#8dc63f")
