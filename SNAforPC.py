@@ -76,16 +76,35 @@ def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dp
     node_list=np.ravel(edge_list, order="c") #엣지 리스트를 1차원 배열로 변형
     node_list=list(set(node_list)) #중복값 제거
     
-    #targetSelectionName이 있을 경우 해당 인물만 색깔을 다르게 함
+    #targetSelectionName이 있을 경우 해당 인물만 색깔을 다르게 함. 또한 무응답 혹은 불성실응답의 경우에는 연하게 처리함. (0점자)
+    no_answer_check_list=[]
+    for row in matrix:
+        thisScoreCheck=False
+        thisName=""
+        for i, column in enumerate(row):
+            if i>0:
+                if float(column)>0:
+                    thisScoreCheck=True
+            else:
+                thisName=column
+        if thisScoreCheck==False:
+            no_answer_check_list.append(thisName)
+
     node_color_list=[]
     for nodeName in node_list:
         if targetSelectionName:
-            if (nodeName==targetSelectionName):
+            if nodeName==targetSelectionName:
                 node_color_list.append("#c80025")
             else:
-                node_color_list.append(nodeColor)
+                if nodeName in no_answer_check_list:
+                    node_color_list.append("#cccccc")
+                else:
+                    node_color_list.append(nodeColor)
         else :
-            node_color_list.append(nodeColor)
+            if nodeName in no_answer_check_list:
+                node_color_list.append("#cccccc")
+            else:
+                node_color_list.append(nodeColor)
     
     #단방향, 양방향 분석 후 엣지 색깔 구분
     edge_color_list=[]
