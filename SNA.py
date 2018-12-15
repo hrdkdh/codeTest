@@ -14,10 +14,10 @@ GRNO="1"
 CATE="task"
 
 if CATE=="task":
-    pltTitle="[업무친밀도]"
+    pltTitleStr="[업무친밀도]"
 
 if CATE=="people":
-    pltTitle="[개인친밀도]"
+    pltTitleStr="[개인친밀도]"
 
 def getScoreFromGongam():
     from urllib.request import urlopen
@@ -208,4 +208,4 @@ score=getScoreFromGongam()
 df=getDataFromScore(score)
 
 #그래프 생성
-getNetworkGraph(df, pltTitle=pltTitle, targetSelectionName="", figsize=(8,8), nodeColor="#8dc63f")
+getNetworkGraph(df, pltTitle=pltTitleStr, targetSelectionName="서동기", figsize=(8,8), nodeColor="#8dc63f")
