@@ -7,18 +7,99 @@
 3. 표준점수화 하면 평균(0점) 이하점수는 음수가 나오며, 음수는 모두 0점으로 처리하여 단순화한다.
 4. 그래프를 그린다.
 """
-
 import pandas as pd
+import numpy as np
 
-#데이터 로드
-df = pd.read_csv("data/network_test_data.csv")
+GRNO="1"
 
-def getDataFromGongam():
+def getScoreFromGongam():
     from urllib.request import urlopen
     from bs4 import BeautifulSoup
+    import json
+    
+    url_source = "http://www.gongamplus.com/adm/?ca=getDataForSocialNetwork&grNo="+GRNO
+    webpage = urlopen(url_source)
+    source = BeautifulSoup(webpage, 'html5lib')
+    score=json.loads(source.get_text().strip())
+    return score
+
+def getDataFromScore(score):
+    import math
+    
+    df=pd.DataFrame.from_dict(score)
+    matrix=df.values
+    newDataTable=[]
+    noAnswerName=[]
+    
+    for r, row in enumerate(matrix):
+        if r==0:
+            thisRowForNewDataTable=[]
+            for col in row:
+                thisRowForNewDataTable.append(col)
+            newDataTable.append(thisRowForNewDataTable)
+        else:
+            thisSum=0
+            thisCnt=0
+            thisAvr=0
+            thisStd=0
+            thisRowForNewDataTable=[]
+            thisScoreArr=[]
+            thisStdArr=[]
+            for c, col in enumerate(row):
+                if c==0:
+                    thisRowForNewDataTable.append(col)
+                #각 행의 평균, 표준편차 구하기
+                if col!=None and isNumber(col)==True:
+                    thisScore=int(col)
+                    if (thisScore>0):
+                        thisSum=thisSum+thisScore
+                        thisCnt=thisCnt+1
+                else:
+                    thisScore=0
+                if c>0:
+                    thisScoreArr.append(thisScore)                    
+            if thisSum>0 and thisCnt>0:
+                thisAvr=thisSum/thisCnt
+            else:
+                thisAvr=0
+                noAnswerName.append(r)
+            
+            thisSumForVari=float()
+            nowCnt=0
+            #개인별 평균 및 표준편차 구하기
+            for nowScore in thisScoreArr:
+                if nowScore>0:
+                    thisSumForVari=thisSumForVari+math.pow(nowScore-thisAvr, 2)
+                    nowCnt=nowCnt+1
+            if thisSumForVari>0 and nowCnt>0:
+                thisStd=math.sqrt(thisSumForVari/thisCnt)
+
+            #개인별 표준점수 입력하여 샤테이블 완성
+            thisStScore=float()
+            for nowScore in thisScoreArr:
+                if nowScore>0 and thisStd!=0:
+                    thisStScore=(nowScore-thisAvr)/thisStd
+                else:
+                    thisStScore=0
+                thisRowForNewDataTable.append(thisStScore)
+            newDataTable.append(thisRowForNewDataTable)
+    
+    df=pd.DataFrame.from_dict(newDataTable)
+    
+    #데이터가 없는 행(무응답행)이 있다면 행열에서 모두 제거한다
+    df2=df.drop(noAnswerName,0) #행삭제
+    df3=df2.drop(noAnswerName,1) #열삭제
+
+    return df3
+
+def isNumber(s):
+  try:
+    float(s)
+    return True
+  except ValueError:
+    return False
 
 def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dpi=160, nodeColor="#05507d", arrowDefaultColor="#dddddd", arrowEmpathyzedColor="#ff708a"):
-    import numpy as np
     import networkx as nx
     import matplotlib.pyplot as plt
 
@@ -31,25 +112,11 @@ def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dp
     if (pltTitle):
         plt.title(pltTitle);
     
-    #그래프 그리기
+    #그래프 만들기
     DG = nx.DiGraph()
 
     #노드 사이즈 최소값 설정
     node_size_default=1600
-    
-    """
-    #열평균을 구해 노드별 사이즈 설정
-    node_size_list_org=[]
-    for targetName in df["name"]:
-        #1 이하 소수점이 있으므로 1로 맞춤
-        thisMean=df[targetName].mean()+1
-        node_size_list_org.append((targetName,thisMean))
-
-    node_size_list=[]
-    for nodeSizeOrg in node_size_list_org:
-        thisNodeSize=node_size_default*nodeSizeOrg[1]
-        node_size_list.append(thisNodeSize)
-    """
 
     #엣지 리스트 생성 후 엣지 입력
     edge_list=[]
@@ -101,6 +168,13 @@ def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dp
     nx.draw_networkx_nodes(DG, pos, nodelist=node_list, node_size=node_size_default, node_color=node_color_list)
     nx.draw_networkx_labels(DG, pos, font_family="NanumGothic", font_size=12, font_color="white", font_weight="bold")
     #nx.draw_networkx_edge_labels(DG, pos, edge_labels=edge_labels, alpha=0.45, font_size=5)
-    
+
+#점수 로드
+score=getScoreFromGongam()
+
+#점수 표준화 및 데이터 정제
+df=getDataFromScore(score)
+print(df)
+
 #그래프 생성
 getNetworkGraph(df, pltTitle="", targetSelectionName="", nodeColor="#8dc63f")
