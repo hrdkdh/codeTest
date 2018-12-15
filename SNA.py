@@ -1,5 +1,3 @@
-#-*- coding: utf-8 -*-
-
 """
 관계 분석을 위한 데이터 처리 플로우는 아래와 같다
 1. 구성원 한명씩 친밀도를 물어보는 형태로 데이터를 수집한다.
@@ -7,17 +5,21 @@
 3. 표준점수화 하면 평균(0점) 이하점수는 음수가 나오며, 음수는 모두 0점으로 처리하여 단순화한다.
 4. 그래프를 그린다.
 """
+#-*- coding: utf-8 -*-
+import sys
+import codecs
 import pandas as pd
 import numpy as np
 
-GRNO="1"
-CATE="task"
+import matplotlib
+matplotlib.use('Agg')
 
-if CATE=="task":
-    pltTitleStr="[업무친밀도]"
+#stdout의 인코딩을 UTF-8로 강제 변환한다. 아래 코드를 삽입하지 않으면 한글이 들어간 파이썬코드를 PHP로 실행할 수 없다.
+sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
-if CATE=="people":
-    pltTitleStr="[개인친밀도]"
+GRNO=sys.argv[1]
+CATE=sys.argv[2]
+TARGETNO=sys.argv[3]
 
 def getScoreFromGongam():
     from urllib.request import urlopen
@@ -29,6 +31,15 @@ def getScoreFromGongam():
     source = BeautifulSoup(webpage, 'html5lib')
     score=json.loads(source.get_text().strip())
     return score
+
+def getTargetNameFromGongam(targetNo):
+    from urllib.request import urlopen
+    from bs4 import BeautifulSoup
+    
+    url_source = "http://www.gongamplus.com/adm/?ca=getDataForSocialNetwork&targetNo="+targetNo
+    webpage = urlopen(url_source)
+    source = BeautifulSoup(webpage, 'html5lib')
+    return source.get_text().strip()
 
 def getDataFromScore(score):
     import math
@@ -118,15 +129,29 @@ def getDataFromScore(score):
     return df
 
 def isNumber(s):
-  try:
-    float(s)
-    return True
-  except ValueError:
-    return False
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
 
-def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dpi=160, nodeColor="#05507d", arrowDefaultColor="#dddddd", arrowEmpathyzedColor="#ff708a"):
+def getNetworkGraph(df, figsize=(12,12), dpi=160, nodeColor="#05507d", arrowDefaultColor="#dddddd", arrowEmpathyzedColor="#ff708a"):
     import networkx as nx
     import matplotlib.pyplot as plt
+    import random
+
+    #그래프 타이틀 설정
+    if CATE=="task":
+        pltTitleStr="[업무친밀도]"
+
+    if CATE=="people":
+        pltTitleStr="[개인친밀도]"
+
+    #특정인물을 선정한 것이라면 이름 가져옴
+    if int(TARGETNO)>0:
+        TARGETNAME=getTargetNameFromGongam(TARGETNO)
+    else:
+        TARGETNAME=""
 
     #데이터 변환
     matrix=df.values
@@ -136,8 +161,8 @@ def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dp
     plt.rc("font", family="NanumGothic", weight="bold", size=18)
     plt.figure(figsize=figsize, dpi=dpi, facecolor="w")
     plt.axis("off")
-    if (pltTitle):
-        plt.title(pltTitle);
+    if (pltTitleStr):
+        plt.title(pltTitleStr);
     
     #그래프 만들기
     DG = nx.DiGraph()
@@ -150,8 +175,8 @@ def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dp
     for row in matrix:
         for i, column in enumerate(row):
             if (i<len(df["name"]) and row[0]!=df["name"][i] and row[i+1]>0):
-                if targetSelectionName:
-                    if targetSelectionName==row[0] or targetSelectionName==df["name"][i]:
+                if TARGETNAME:
+                    if TARGETNAME==row[0] or TARGETNAME==df["name"][i]:
                         DG.add_edge(row[0],df["name"][i])
                         edge_list.append((row[0],df["name"][i]))
                 else:
@@ -162,11 +187,11 @@ def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dp
     node_list=np.ravel(edge_list, order="c") #엣지 리스트를 1차원 배열로 변형
     node_list=list(set(node_list)) #중복값 제거
     
-    #targetSelectionName이 있을 경우 해당 인물만 색깔을 다르게 함
+    #TARGETNAME이 있을 경우 해당 인물만 색깔을 다르게 함
     node_color_list=[]
     for nodeName in node_list:
-        if targetSelectionName:
-            if (nodeName==targetSelectionName):
+        if TARGETNAME:
+            if (nodeName==TARGETNAME):
                 node_color_list.append("#c80025")
             else:
                 node_color_list.append(nodeColor)
@@ -186,7 +211,7 @@ def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dp
             edge_color_list.append(arrowDefaultColor)
 
     #엣지 사이즈 설정
-    if targetSelectionName:
+    if TARGETNAME:
         edge_width=4
         edge_node_size=node_size_default-395
     else:
@@ -200,12 +225,22 @@ def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dp
     nx.draw_networkx_nodes(DG, pos, nodelist=node_list, node_size=node_size_default, node_color=node_color_list)
     nx.draw_networkx_labels(DG, pos, font_family="NanumGothic", font_size=12, font_color="white", font_weight="bold")
     #nx.draw_networkx_edge_labels(DG, pos, edge_labels=edge_labels, alpha=0.45, font_size=5)
+    
+    #그래프 그림을 파일로 저장한다
+    fileName="socialNetworkImage/graph"+GRNO+"_"+CATE+"_"+TARGETNO+".png"
+    plt.savefig("socialNetworkImage/graph"+GRNO+"_"+CATE+"_"+TARGETNO+".png", dpi=220, bbox_inches='tight') # 그림 파일 크기 지정
+    imgR=random.randrange(0,500)
+    print("http://www.stt-server.com/"+fileName+"?random="+str(imgR))
 
-#점수 로드
-score=getScoreFromGongam()
+def main():
+    #점수 로드
+    score=getScoreFromGongam()
 
-#점수 표준화 및 데이터 정제
-df=getDataFromScore(score)
+    #점수 표준화 및 데이터 정제
+    df=getDataFromScore(score)
+    #print(df)
 
-#그래프 생성
-getNetworkGraph(df, pltTitle=pltTitleStr, targetSelectionName="서동기", figsize=(8,8), nodeColor="#8dc63f")
+    getNetworkGraph(df, figsize=(8,8), nodeColor="#8dc63f")
+
+if __name__ == '__main__':
+    main()
