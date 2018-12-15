@@ -41,7 +41,7 @@ def getTargetNameFromGongam(targetNo):
     source = BeautifulSoup(webpage, 'html5lib')
     return source.get_text().strip()
 
-def getDataFromScore(score):
+def getDataFromScore(score, noAnswerRemove=True):
     import math
     
     df=pd.DataFrame.from_dict(score)
@@ -104,28 +104,38 @@ def getDataFromScore(score):
     
     lastDataTable=[]
     arrForIndex=[]
-    #데이터가 없는 행(무응답행)이 있다면 행열에서 모두 제거한다
-    for r, row in enumerate(newDataTable):
-        noAnswerCheckRow=0
-        for noAnswer in noAnswerName:
-            if r==noAnswer:
-                noAnswerCheckRow=1
-        if noAnswerCheckRow==0:
+
+    if (noAnswerRemove==True):
+        #데이터가 없는 행(무응답행)이 있다면 행열에서 모두 제거한다
+        for r, row in enumerate(newDataTable):
+            noAnswerCheckRow=0
+            for noAnswer in noAnswerName:
+                if r==noAnswer:
+                    noAnswerCheckRow=1
+            if noAnswerCheckRow==0:
+                lastRowData=[]
+                for c, col in enumerate(row):
+                    noAnswerCheckCol=0
+                    for noAnswer in noAnswerName:
+                        if c==noAnswer:
+                            noAnswerCheckCol=1
+                    if noAnswerCheckCol==0:
+                        lastRowData.append(col)
+                        if c==0:
+                            arrForIndex.append(col)
+                lastDataTable.append(lastRowData)
+        del lastDataTable[0]
+    else:
+        for r, row in enumerate(newDataTable):
             lastRowData=[]
             for c, col in enumerate(row):
-                noAnswerCheckCol=0
-                for noAnswer in noAnswerName:
-                    if c==noAnswer:
-                        noAnswerCheckCol=1
-                if noAnswerCheckCol==0:
-                    lastRowData.append(col)
-                    if c==0:
-                        arrForIndex.append(col)
+                lastRowData.append(col)
+                if c==0:
+                    arrForIndex.append(col)
             lastDataTable.append(lastRowData)
-    del lastDataTable[0]
-    df=pd.DataFrame(lastDataTable, columns=arrForIndex)
-    #df2=pd.DataFrame.from_dict(df)
+        del lastDataTable[0]
     
+    df=pd.DataFrame(lastDataTable, columns=arrForIndex) 
     return df
 
 def isNumber(s):
@@ -187,17 +197,36 @@ def getNetworkGraph(df, figsize=(12,12), dpi=160, nodeColor="#05507d", arrowDefa
     node_list=np.ravel(edge_list, order="c") #엣지 리스트를 1차원 배열로 변형
     node_list=list(set(node_list)) #중복값 제거
     
-    #TARGETNAME이 있을 경우 해당 인물만 색깔을 다르게 함
+    #TARGETNAME이 있을 경우 해당 인물만 색깔을 다르게 함. 또한 무응답 혹은 불성실응답의 경우에는 연하게 처리함. (0점자)
+    no_answer_check_list=[]
+    for row in matrix:
+        thisScoreCheck=False
+        thisName=""
+        for i, column in enumerate(row):
+            if i>0:
+                if float(column)>0:
+                    thisScoreCheck=True
+            else:
+                thisName=column
+        if thisScoreCheck==False:
+            no_answer_check_list.append(thisName)
+
     node_color_list=[]
     for nodeName in node_list:
         if TARGETNAME:
-            if (nodeName==TARGETNAME):
+            if nodeName==TARGETNAME:
                 node_color_list.append("#c80025")
             else:
-                node_color_list.append(nodeColor)
+                if nodeName in no_answer_check_list:
+                    node_color_list.append("#cccccc")
+                else:
+                    node_color_list.append(nodeColor)
         else :
-            node_color_list.append(nodeColor)
-    
+            if nodeName in no_answer_check_list:
+                node_color_list.append("#cccccc")
+            else:
+                node_color_list.append(nodeColor)
+  
     #단방향, 양방향 분석 후 엣지 색깔 구분
     edge_color_list=[]
     for edge1 in edge_list:
@@ -237,7 +266,7 @@ def main():
     score=getScoreFromGongam()
 
     #점수 표준화 및 데이터 정제
-    df=getDataFromScore(score)
+    df=getDataFromScore(score, noAnswerRemove=False)
     #print(df)
 
     getNetworkGraph(df, figsize=(8,8), nodeColor="#8dc63f")
