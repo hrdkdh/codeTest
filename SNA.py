@@ -11,13 +11,20 @@ import pandas as pd
 import numpy as np
 
 GRNO="1"
+CATE="task"
+
+if CATE=="task":
+    pltTitle="[업무친밀도]"
+
+if CATE=="people":
+    pltTitle="[개인친밀도]"
 
 def getScoreFromGongam():
     from urllib.request import urlopen
     from bs4 import BeautifulSoup
     import json
     
-    url_source = "http://www.gongamplus.com/adm/?ca=getDataForSocialNetwork&grNo="+GRNO
+    url_source = "http://www.gongamplus.com/adm/?ca=getDataForSocialNetwork&grNo="+GRNO+"&cate="+CATE
     webpage = urlopen(url_source)
     source = BeautifulSoup(webpage, 'html5lib')
     score=json.loads(source.get_text().strip())
@@ -74,7 +81,7 @@ def getDataFromScore(score):
             if thisSumForVari>0 and nowCnt>0:
                 thisStd=math.sqrt(thisSumForVari/thisCnt)
 
-            #개인별 표준점수 입력하여 샤테이블 완성
+            #개인별 표준점수 입력하여 새테이블 완성
             thisStScore=float()
             for nowScore in thisScoreArr:
                 if nowScore>0 and thisStd!=0:
@@ -84,13 +91,31 @@ def getDataFromScore(score):
                 thisRowForNewDataTable.append(thisStScore)
             newDataTable.append(thisRowForNewDataTable)
     
-    df=pd.DataFrame.from_dict(newDataTable)
-    
+    lastDataTable=[]
+    arrForIndex=[]
     #데이터가 없는 행(무응답행)이 있다면 행열에서 모두 제거한다
-    df2=df.drop(noAnswerName,0) #행삭제
-    df3=df2.drop(noAnswerName,1) #열삭제
-
-    return df3
+    for r, row in enumerate(newDataTable):
+        noAnswerCheckRow=0
+        for noAnswer in noAnswerName:
+            if r==noAnswer:
+                noAnswerCheckRow=1
+        if noAnswerCheckRow==0:
+            lastRowData=[]
+            for c, col in enumerate(row):
+                noAnswerCheckCol=0
+                for noAnswer in noAnswerName:
+                    if c==noAnswer:
+                        noAnswerCheckCol=1
+                if noAnswerCheckCol==0:
+                    lastRowData.append(col)
+                    if c==0:
+                        arrForIndex.append(col)
+            lastDataTable.append(lastRowData)
+    del lastDataTable[0]
+    df=pd.DataFrame(lastDataTable, columns=arrForIndex)
+    #df2=pd.DataFrame.from_dict(df)
+    
+    return df
 
 def isNumber(s):
   try:
@@ -107,6 +132,8 @@ def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dp
     matrix=df.values
 
     #플롯 설정
+    #help(plt.rc)
+    plt.rc("font", family="NanumGothic", weight="bold", size=18)
     plt.figure(figsize=figsize, dpi=dpi, facecolor="w")
     plt.axis("off")
     if (pltTitle):
@@ -158,13 +185,18 @@ def getNetworkGraph(df, pltTitle="", targetSelectionName="", figsize=(12,12), dp
         else:
             edge_color_list.append(arrowDefaultColor)
 
-    #print(edge_list)
-    #print(edge_color_list)
+    #엣지 사이즈 설정
+    if targetSelectionName:
+        edge_width=4
+        edge_node_size=node_size_default-395
+    else:
+        edge_width=2
+        edge_node_size=node_size_default-100
 
     #그래프 출력
     #k는 노드 간의 최소 거리, iteration은 최적점을 찾는 반복횟수, 스케일은 크기
     pos=nx.spring_layout(DG, k=3, iterations=100, scale=2)
-    nx.draw_networkx_edges(DG, pos, edgelist=edge_list, node_size=node_size_default-100, edge_color=edge_color_list, width=2, arrows=True)
+    nx.draw_networkx_edges(DG, pos, edgelist=edge_list, node_size=edge_node_size, edge_color=edge_color_list, width=edge_width, arrows=True)
     nx.draw_networkx_nodes(DG, pos, nodelist=node_list, node_size=node_size_default, node_color=node_color_list)
     nx.draw_networkx_labels(DG, pos, font_family="NanumGothic", font_size=12, font_color="white", font_weight="bold")
     #nx.draw_networkx_edge_labels(DG, pos, edge_labels=edge_labels, alpha=0.45, font_size=5)
@@ -174,7 +206,6 @@ score=getScoreFromGongam()
 
 #점수 표준화 및 데이터 정제
 df=getDataFromScore(score)
-print(df)
 
 #그래프 생성
-getNetworkGraph(df, pltTitle="", targetSelectionName="", nodeColor="#8dc63f")
+getNetworkGraph(df, pltTitle=pltTitle, targetSelectionName="", figsize=(8,8), nodeColor="#8dc63f")
